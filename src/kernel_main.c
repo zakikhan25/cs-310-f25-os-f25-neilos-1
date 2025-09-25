@@ -1,25 +1,22 @@
-
 #include <stdint.h>
 
-#define MULTIBOOT2_HEADER_MAGIC         0xe85250d6
+// Multiboot1 header so GRUB knows how to load us
+__attribute__((section(".multiboot")))
+const uint32_t multiboot_header[] = {
+    0x1BADB002,                  // magic
+    0x00010003,                  // flags (align + mem info)
+    -(0x1BADB002 + 0x00010003)   // checksum (sum to zero)
+};
 
-const unsigned int multiboot_header[]  __attribute__((section(".multiboot"))) = {MULTIBOOT2_HEADER_MAGIC, 0, 16, -(16+MULTIBOOT2_HEADER_MAGIC), 0, 12};
+// externs from other files
+extern void putc(int data);
+extern int esp_printf(void (*printchar)(int), const char *fmt, ...);
 
-uint8_t inb (uint16_t _port) {
-    uint8_t rv;
-    __asm__ __volatile__ ("inb %1, %0" : "=a" (rv) : "dN" (_port));
-    return rv;
+// kernel entry point
+void kernel_main(void) {
+    esp_printf(putc, "Hello World!\n");
+    esp_printf(putc, "Execution level: %d\n", 1);
+    while (1) { /* loop forever */ }
 }
 
-void main() {
-    unsigned short *vram = (unsigned short*)0xb8000; // Base address of video mem
-    const unsigned char color = 7; // gray text on black background
 
-    while(1) {
-        uint8_t status = inb(0x64);
-
-        if(status & 1) {
-            uint8_t scancode = inb(0x60);
-        }
-    }
-}

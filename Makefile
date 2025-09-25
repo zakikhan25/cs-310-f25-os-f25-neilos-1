@@ -1,68 +1,49 @@
+.RECIPEPREFIX := >
 
-UNAME_M := $(shell uname -m)
+# Toolchain
+CC = gcc
+LD = ld
+CFLAGS = -ffreestanding -m32 -fno-pie -fno-stack-protector -Wall -g
+LDFLAGS = -m elf_i386 -T kernel.ld
 
-ifeq ($(UNAME_M),aarch64)
-PREFIX:=i686-linux-gnu-
-BOOTIMG:=/usr/local/grub/lib/grub/i386-pc/boot.img
-GRUBLOC:=/usr/local/grub/bin/
-else
-PREFIX:=
-BOOTIMG:=/usr/lib/grub/i386-pc/boot.img
-GRUBLOC :=
-endif
-
-CC := $(PREFIX)gcc
-LD := $(PREFIX)ld
-OBJDUMP := $(PREFIX)objdump
-OBJCOPY := $(PREFIX)objcopy
-SIZE := $(PREFIX)size
-CONFIGS := -DCONFIG_HEAP_SIZE=4096
-CFLAGS := -ffreestanding -mgeneral-regs-only -mno-mmx -m32 -march=i386 -fno-pie -fno-stack-protector -g3 -Wall 
-
+# Dirs
 ODIR = obj
 SDIR = src
 
+# Objects
 OBJS = \
-	kernel_main.o \
-
-# Make sure to keep a blank line here after OBJS list
+    kernel_main.o \
+    rprintf.o \
+    esp_printf.o \
 
 OBJ = $(patsubst %,$(ODIR)/%,$(OBJS))
 
+# Default
+all: kernel
+
+# Compile C to obj/
 $(ODIR)/%.o: $(SDIR)/%.c
-	$(CC) $(CFLAGS) -c -g -o $@ $^
+> mkdir -p $(ODIR)
+> $(CC) $(CFLAGS) -c $< -o $@
 
-$(ODIR)/%.o: $(SDIR)/%.s
-	$(CC) $(CFLAGS) -c -g -o $@ $^
+# Link kernel
+kernel: $(OBJ)
+> $(LD) $(LDFLAGS) -o $@ $(OBJ)
+> @echo ">>> Kernel built successfully!"
 
+# Build bootable ISO
+iso: kernel
+> rm -rf iso_root
+> mkdir -p iso_root/boot/grub
+> cp kernel iso_root/boot/kernel
+> cp grub.cfg iso_root/boot/grub/
+> grub-mkrescue -o os.iso iso_root
 
-all: bin rootfs.img
+# Run in QEMU (text mode)
+run-iso: iso
+> qemu-system-i386 -cdrom os.iso -nographic
 
-bin: obj $(OBJ)
-	$(LD) -melf_i386  obj/* -Tkernel.ld -o kernel
-	$(SIZE) kernel
-
-obj:
-	mkdir -p obj
-
-rootfs.img:
-	dd if=/dev/zero of=rootfs.img bs=1M count=32
-	$(GRUBLOC)grub-mkimage -p "(hd0,msdos1)/boot" -o grub.img -O i386-pc normal biosdisk multiboot multiboot2 configfile fat exfat part_msdos
-	dd if=/usr/local/grub/lib/grub/i386-pc/boot.img  of=rootfs.img conv=notrunc
-	dd if=$(BOOTIMG) of=rootfs.img conv=notrunc
-	echo 'start=2048, type=83, bootable' | sfdisk rootfs.img
-	mkfs.vfat --offset 2048 -F16 rootfs.img
-	mcopy -i rootfs.img@@1M kernel ::/
-	mmd -i rootfs.img@@1M boot 
-	mcopy -i rootfs.img@@1M grub.cfg ::/boot
-	@echo " -- BUILD COMPLETED SUCCESSFULLY --"
-
-
-run:
-	qemu-system-i386 -hda rootfs.img
-
-debug:
-	./launch_qemu.sh
-
+# Clean
 clean:
-	rm -f grub.img kernel rootfs.img obj/*
+> rm -rf $(ODIR) kernel os.iso iso_root grub.img rootfs.img
+
