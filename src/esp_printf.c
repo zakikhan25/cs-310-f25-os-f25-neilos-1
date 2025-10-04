@@ -1,45 +1,19 @@
+#ifndef __RPRINTF_H__
+#define __RPRINTF_H__
+
 #include <stdarg.h>
 
-// external character output
-extern void putc(int data);
+typedef unsigned int  size_t;
+#define NULL (void*)0
 
-int esp_printf(void (*printchar)(int), const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
+int isdig(int c);
 
-    for (const char *p = fmt; *p; p++) {
-        if (*p == '%') {
-            p++;
-            if (*p == 'd') { // integer
-                int val = va_arg(args, int);
-                char buf[16];
-                int i = 0;
-                if (val == 0) {
-                    buf[i++] = '0';
-                } else {
-                    int neg = 0;
-                    if (val < 0) { neg = 1; val = -val; }
-                    while (val > 0) { buf[i++] = '0' + (val % 10); val /= 10; }
-                    if (neg) buf[i++] = '-';
-                }
-                while (--i >= 0) printchar(buf[i]);
-            } else if (*p == 's') { // string
-                char *s = va_arg(args, char*);
-                while (*s) printchar(*s++);
-            } else if (*p == 'c') { // char
-                char c = (char)va_arg(args, int);
-                printchar(c);
-            } else {                // unknown specifier
-                printchar('%');
-                printchar(*p);
-            }
-        } else {
-            printchar(*p);
-        }
-    }
+typedef char* charptr;
+typedef int (*func_ptr)(int c);
 
-    va_end(args);
-    return 0;
-}
+void esp_sprintf(char *buf, char *ctrl, ...);
+void esp_vprintf( const func_ptr f_ptr, charptr ctrl, va_list argp);
+void esp_printf( const func_ptr f_ptr, charptr ctrl, ...);
+void printk(charptr ctrl, ...);
 
-
+#endif
