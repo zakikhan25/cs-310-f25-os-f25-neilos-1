@@ -7,6 +7,47 @@
 #define COLS 80
 #define SCREEN_SIZE (ROWS * COLS)
 
+// Keyboard scancode to ASCII translation table
+unsigned char keyboard_map[128] =
+{
+   0,  27, '1', '2', '3', '4', '5', '6', '7', '8',     /* 9 */
+ '9', '0', '-', '=', '\b',     /* Backspace */
+ '\t',                 /* Tab */
+ 'q', 'w', 'e', 'r',   /* 19 */
+ 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', /* Enter key */
+   0,                  /* 29   - Control */
+ 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';',     /* 39 */
+'\'', '`',   0,                /* Left shift */
+'\\', 'z', 'x', 'c', 'v', 'b', 'n',                    /* 49 */
+ 'm', ',', '.', '/',   0,                              /* Right shift */
+ '*',
+   0,  /* Alt */
+ ' ',  /* Space bar */
+   0,  /* Caps lock */
+   0,  /* 59 - F1 key ... > */
+   0,   0,   0,   0,   0,   0,   0,   0,  
+   0,  /* < ... F10 */
+   0,  /* 69 - Num lock*/
+   0,  /* Scroll Lock */
+   0,  /* Home key */
+   0,  /* Up Arrow */
+   0,  /* Page Up */
+ '-',
+   0,  /* Left Arrow */
+   0,  
+   0,  /* Right Arrow */
+ '+',
+   0,  /* 79 - End key*/
+   0,  /* Down Arrow */
+   0,  /* Page Down */
+   0,  /* Insert Key */
+   0,  /* Delete Key */
+   0,   0,   0,  
+   0,  /* F11 Key */
+   0,  /* F12 Key */
+   0,  /* All other keys are undefined */
+};
+
 // Global cursor position
 int cursor = 0;
 
@@ -31,7 +72,7 @@ void scroll_screen(void) {
 }
 
 // Write one character to the screen
-void putc(int data) {
+int putc(int data) {
     char *video = (char*) VIDEO_MEMORY;
     
     if (data == '\n') {
@@ -46,7 +87,7 @@ void putc(int data) {
         for (int i = 0; i < spaces; i++) {
             putc(' ');
         }
-        return;
+        return data;
     } else if (data == '\b') {
         // Backspace: move back one position
         if (cursor > 0) {
@@ -54,7 +95,7 @@ void putc(int data) {
             video[cursor * 2] = ' ';
             video[cursor * 2 + 1] = 0x07;
         }
-        return;
+        return data;
     } else {
         // Regular character
         video[cursor * 2] = (char) data;   // ASCII character
@@ -66,6 +107,8 @@ void putc(int data) {
     if (cursor >= SCREEN_SIZE) {
         scroll_screen();
     }
+    
+    return data;
 }
 
 // Clear the screen
@@ -129,9 +172,17 @@ void main(void) {
         uint8_t status = inb(0x64);
         if (status & 1) {
             uint8_t scancode = inb(0x60);
-            // Later: translate scancode to char, call putc()
-            // For now, just print the scancode in hex
-            esp_printf(putc, "Scancode: 0x%x\r\n", scancode);
+            
+            // Only process key press events (bit 7 = 0)
+            if (!(scancode & 0x80)) {
+                // Translate scancode to ASCII
+                unsigned char ascii = keyboard_map[scancode];
+                
+                // Only print if it's a valid ASCII character
+                if (ascii != 0) {
+                    putc(ascii);
+                }
+            }
         }
     }
 }
