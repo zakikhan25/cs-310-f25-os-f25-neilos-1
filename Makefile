@@ -31,7 +31,8 @@ CSRC := \
   kernel_main.c \
   rprintf.c \
   interrupt.c \
-  keyboard.c
+  keyboard.c \
+  page.c
 
 SSRC := \
   multiboot_header.s

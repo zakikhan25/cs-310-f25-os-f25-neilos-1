@@ -2,6 +2,7 @@
 #include "rprintf.h"
 #include "keyboard.h"
 #include "io.h"
+#include "page.h"
 
 #define VIDEO_MEMORY 0xB8000
 #define ROWS 25
@@ -56,6 +57,11 @@ void pic_init(void);
 void main(void) {
     clear_screen();
     esp_printf(putc, "CS 310 HW2: Keyboard Driver (Interrupts)\r\n");
+
+    // Initialize the page frame allocator
+    init_pfa_list();                                          // <--- ADD THIS
+    esp_printf(putc, "Page allocator initialized\r\n");       // <--- ADD THIS
+
 
     // Initialize interrupts
     idt_init();
